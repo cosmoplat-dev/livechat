@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+<title>Chat With Account Manager</title>
+<meta charset="utf8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<script src="/json.js"></script> <!-- for ie -->
+<link rel="stylesheet" href="http://crm.igvault.com/static/am.css"/>
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+</head>
+
+<script>
+var socket;
+var firstconnect = true;
+var tmptime = 0;
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+
+var Request=new QueryString();
+var userId=Request["uid"];
+var nickName = Request["nick"];
+var mid = Request["mid"];
+var html_height = Request["height"];
+var cus=  {"userId":Request["uid"],"nickName": Request["nick"],"amsex":Request["amsex"],"userlang":Request["userlang"]}
+var picurlArray={"male":{"on":"http://dunkapi.igvault.com/image/am_m_on.png", "off":"http://dunkapi.igvault.com/image/am_m_off.png"}, "female":{"on":"http://dunkapi.igvault.com/image/am_f_on.png","off":"http://dunkapi.igvault.com/image/am_f_off.png"}}
+
+if(firstconnect) {
+    //socket = io.connect(null,{'sync disconnect on unload': true});
+    socket = io.connect(null);
+    socket.emit('reg-user',cus);
+    socket.on('send-message',function(data){message(data)}); 
+    socket.on('new-user',function(data){status_update(data)});
+    socket.on('connect', function(){ status_update("Connected to Server"); });
+    socket.on('disconnect', function(){ status_update("Disconnected from Server"); });
+    socket.on('reconnect', function(){ socket.emit('reg-user',cus);status_update("Reconnected to Server"); });
+    socket.on('reconnecting', function( nextRetry ){ status_update("Reconnecting in " + nextRetry + " seconds"); });
+    socket.on('reconnect_failed', function(){ message("Reconnect Failed"); });
+    firstconnect = false;
+} else {
+      socket.socket.reconnect();
+}
+  
+function message(data) {
+	if(data.offline=='y'){
+     picurl=picurlArray[cus.amsex]['off'];
+  }else{
+     picurl=picurlArray[cus.amsex]['on'];
+  }
+    if(timestamp() >= (tmptime+60000)){
+    tmptime = timestamp();
+  $('#chat_list').append("<div class='chat_wrap'><div class=' c_am c_customer '><span class='bubble'>" + data.info + "<span class='bubble_a'></span><span class='bubble_b'></span><span class='bubble_c'></span><span class='bubble_d'></span></span><span class='user'><img src='"+picurl+"' alt='user'/></span></div></div><div class='chat_time'>"+data.datetime+"</div>"); 
+    }else{
+  $('#chat_list').append("<div class='chat_wrap'><div class=' c_am c_customer '><span class='bubble'>" + data.info + "<span class='bubble_a'></span><span class='bubble_b'></span><span class='bubble_c'></span><span class='bubble_d'></span></span><span class='user'><img src='"+picurl+"' alt='user'/></span></div></div>"); 
+    }
+    scrolltobottom("chat_list");
+}
+ 
+function send() {
+    var info = $('#sendContent').val();
+	if($.trim(info) == ""){
+		return false;
+	}else{
+    var msg = {'from':cus.userId,'nick':cus.nickName, 'to':mid,'info': info,'datetime':getDatetime(), 'userlang':cus.userlang};
+  
+        $('#chat_list').append("<div class='chat_wrap c_customer'><span class='user'><img src='http://dunkapi.igvault.com/image/icon_user.png' alt='user'/></span><span class='bubble'>" + msg.info + "<span class='bubble_a'></span><span class='bubble_b'></span><span class='bubble_c'></span><span class='bubble_d'></span></span></div>"); 
+		
+		if(timestamp() >= (tmptime+60000)){
+        $('#chat_list').append("<div class='chat_time'>"+msg.datetime+"</div>");
+		}
+		tmptime = timestamp();
+
+     scrolltobottom("chat_list");
+    socket.emit('send-message',msg); 
+	$('#sendContent').val("");
+	}
+};
+
+function disconnect() {
+    socket.disconnect();
+}
+
+function status_update(txt){
+    $('#status').html("<em class='icon_online'></em>"+txt);
+}
+ 
+function esc(msg){
+    return msg.replace(/</g, '<').replace(/>/g, '>');
+}
+
+function getDatetime(){
+    var n=new Date(); 
+    return n.getFullYear()+"-"+(n.getMonth()+1)+"-"+n.getDate()+" "+n.getHours()+":"+n.getMinutes()+":"+n.getSeconds();
+}
+
+function timestamp(){
+    return new Date().getTime();
+}
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+
+function scrolltobottom(id) {
+    var scrollTop = $("#"+id)[0].scrollHeight;
+    $("#"+id).scrollTop(scrollTop);
+}
+document.onkeydown=function(e){
+	var keycode=document.all?event.keyCode:e.which;
+	if(keycode==13){
+		send();
+        $("#sendContent").val("");
+	}
+}
+
+</script>
+
+  <script type="text/javascript" language="javascript">
+$(document).ready(function(){
+	var win_h = html_height;
+	//alert(win_h);
+	$(".mod_min_height").css({"height":win_h});	
+	$(".msg_box").css({"height":win_h-70});	
+});
+</script>
+
+<body>
+	<div id="LiveChat_wrap">
+		<div id="LiveChat">
+				<div class="online_tips" id="status">
+				 Loading....
+				</div>
+				<div class="pop_wrap" id="chat_list">
+				<!-- xxxx-->
+				
+				</div>
+				<div class="p_line"></div>
+		
+			    <div class="pop_wrap">
+					<div class="button_group text_right">
+						<textarea name="" id="sendContent" cols="30" rows="10" ></textarea>
+						<button id="send" class="btn_gray" onClick='send()'><em></em><span>Send</span></button>
+					</div>
+				</div>
+				
+
+		</div>
+	</div>
+
+</body>
+</html>

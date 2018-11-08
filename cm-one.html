@@ -1,0 +1,98 @@
+<html>
+<head>
+<title>Socket.io Test</title>
+<script src="/json.js"></script> <!-- for ie -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+</head>
+
+<body>
+<script>
+var socket;
+var firstconnect = true;
+
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+
+var Request=new QueryString();
+userId=Request['uid'];
+nickName=Request['nick'];
+
+var cm = {"userId": Request['mid'],"nickName":Request['mnick'],"userlang":"am"};
+if(firstconnect) {
+    socket = io.connect(null);
+    socket.emit('reg-user',cm);
+    socket.on('send-message',function(data){message(data)});
+    socket.on('connect', function(){ status_update("Connected to Server"); });
+    socket.on('disconnect', function(){ status_update("Disconnected from Server"); });
+    socket.on('reconnect', function(){ socket.emit('reg-user',cm);status_update("Reconnected to Server"); });
+    socket.on('reconnecting', function( nextRetry ){ status_update("Reconnecting in " + nextRetry + " seconds"); });
+    socket.on('reconnect_failed', function(){ message("Reconnect Failed"); });
+
+    firstconnect = false;
+} else {
+    socket.socket.reconnect();
+}    
+ 
+function disconnect() {
+    socket.disconnect();
+}
+ 
+function message(data) {
+    document.getElementById('message').innerHTML  += data.datetime + ' ' + data.from +" says: " + data.info +"<br>";
+}
+ 
+function status_update(txt){
+    document.getElementById('status').innerHTML = txt;
+}
+ 
+function esc(msg){
+    return msg.replace(/</g, '<').replace(/>/g, '>');
+}
+
+
+function getDatetime(){
+    var n=new Date();   
+    return n.getFullYear()+"-"+(n.getMonth()+1)+"-"+n.getDate()+" "+n.getHours()+":"+n.getMinutes()+":"+n.getSeconds();
+}
+ 
+function send() {
+    var info = document.getElementById('sendContent').value
+    var msg = {'from':Request['mid'],'nick':Request['mnick'],'to':userId,'info': info,'datetime':getDatetime()} 
+    message(msg);
+    socket.emit('send-message',msg);
+};
+</script>
+ 
+<h1>Customer Manager Page</h1>
+<div><p id="status">Waiting for input</p></div>
+<div><p id="message"></p></div>
+<br>
+<input id ="sendContent" maxlength="200" value=""><button id="send" onClick='send()'/>Send Message</button>
+<br>
+<button id="disconnect" onClick='disconnect()'>Disconnect</button>
+
+
+<div style="width:800px;height:800px;">
+  <div
+</div>
+
+</body>
+</html>
+

@@ -1,0 +1,202 @@
+<html>
+<head>
+<title>Socket.io Test</title>
+<meta charset="utf8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<script src="/json.js"></script> <!-- for ie -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<!--<script src="http://192.168.126.40/mapi/lijiayi/js/iscroll.js"></script>
+--><style type="text/css">
+/* 包含浮动: h5bp.com/q */ 
+.clearfix:before, .clearfix:after { content: ""; display: table; }
+.clearfix:after { clear: both; }
+.clearfix { zoom: 1; }
+*{margin:0;padding:0;}
+body{background:#eee;font:12px HelveticaNeue-Light, Arial, Helvetica, sans-serif}
+
+.tit{background:#8fc31f;border-radius:8px;color:#fff;padding:5px 10px;text-align:right;font-size:12px; height:20px; line-height:20px;}
+.tit p{float:left;display:inline-block;text-align:left;font-size:16px;}
+
+.msg_box{width:320px;margin:0 auto;overflow:hidden;overflow-y:scroll;}
+.msg_box center{font-size:10px;color:#b5b5b5;}
+
+.u_msg,.msg{position:relative;}
+.msg .text,.u_msg .text{background:#fff;border-radius:8px;padding:5px 14px;max-width:165px;display:inline-block;word-wrap:break-word;}
+.msg,.u_msg{margin:40px 30px 25px 20px;}
+.u_msg{text-align:right;}
+.u_msg .text{color:#313131;text-align:left;margin-right:60px;}
+
+.msg .text{color:#486a00;margin-left:60px;}
+
+.md_1,.md_1bg,.md_2,.md_2bg{position:absolute;bottom:0;}
+.md_1,.md_1bg{left:0;}
+.md_2,.md_2bg{bottom:0;}
+.md_1{left:0;}
+.md_1bg{left:55px;}
+.md_2{right:0;bottom:-5px;}
+.md_2bg{right:55px;}
+
+.foot_bg{height:40px;background:#313131;width: 100%;}
+.mod_foot{width:320px;margin:0 auto}
+.mod_foot input,.mod_foot button{float:left;display:inline-block;}
+.mod_foot input{height:30px;width:245px;line-height:30px;margin:5px 5px 0 10px;padding:0 5px;font-size:16px;}
+.mod_foot button{background:url(http://dunkapi.igvault.com/image/send_msg.jpg) center no-repeat;border:0 none;width:50px;height:40px;}
+
+#wrapper {
+    position:relative;
+    z-index:1;
+}
+</style>
+</head>
+
+<body>
+<script>
+var socket;
+var firstconnect = true;
+var tmptime = 0;
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+
+var Request=new QueryString();
+var userId=Request["uid"];
+var nickName = Request["nick"];
+var mid = Request["mid"];
+var imgsrc = 'http://dunkapi.igvault.com/image/cus_default.jpg'
+var html_height = Request["height"];
+//alert(html_height);
+var cus=  {"userId":Request["uid"],"nickName": Request["nick"]}
+
+
+if(firstconnect) {
+    socket = io.connect(null);
+    socket.emit('reg-user',cus);
+    socket.on('send-message',function(data){message(data)}); 
+    socket.on('new-user',function(data){status_update(data)});
+    socket.on('connect', function(){ status_update("Connected to Server"); });
+    socket.on('disconnect', function(){ status_update("Disconnected from Server"); });
+    socket.on('reconnect', function(){ socket.emit('reg-user',cus);tatus_update("Reconnected to Server"); });
+    socket.on('reconnecting', function( nextRetry ){ status_update("Reconnecting in " + nextRetry + " seconds"); });
+    socket.on('reconnect_failed', function(){ message("Reconnect Failed"); });
+    firstconnect = false;
+} else {
+      socket.socket.reconnect();
+}
+  
+function message(data) {
+    if(timestamp() >= (tmptime+30000)){
+  tmptime = timestamp();
+  $('#message').append("<div class='msg'><div class='text'>" + data.info + "<img class='md_1bg' src='http://dunkapi.igvault.com/image/bg_cus.jpg' width='20' height='10' /><img class='md_1' src='http://dunkapi.igvault.com/image/cm.jpg' /></div></div><center>"+data.datetime+"</center>"); 
+    }else{
+  $('#message').append("<div class='msg'><div class='text'>" + data.info + "<img class='md_1bg' src='http://dunkapi.igvault.com/image/bg_cus.jpg' width='20' height='10' /><img class='md_1' src='http://dunkapi.igvault.com/image/cm.jpg' /></div></div>"); 
+    }
+    scrolltobottom("message");
+}
+  
+function send() {
+    var info = $('#sendContent').val();
+	if(info == ""){
+		return false;
+	}
+    var msg = {'from':cus.userId,'nick':cus.nickName, 'to':mid,'info': info,'datetime':getDatetime(), 'idimg':imgsrc};
+    if(timestamp() >= tmptime+10000){
+  tmptime = timestamp();
+        $('#message').append("<div class='u_msg'><div class='text'>" + msg.info + "<img class='md_2bg' src='http://dunkapi.igvault.com/image/bg_cm.jpg' width='19' height='10' /><img class='md_2' src="+msg.idimg+" /></div></div><center>" + msg.datetime + "</center><div></div>"); 
+    }else{
+        $('#message').append("<div class='u_msg'><div class='text'>" + msg.info + "<img class='md_2bg' src='http://dunkapi.igvault.com/image/bg_cm.jpg' width='19' height='10' /><img class='md_2' src="+msg.idimg+" /></div></div>"); 
+    }
+    scrolltobottom("message");
+    socket.emit('send-message',msg); 
+	$('#sendContent').val("");
+};
+
+function disconnect() {
+    socket.disconnect();
+}
+
+function status_update(txt){
+    $('#status').html(txt);
+}
+ 
+function esc(msg){
+    return msg.replace(/</g, '<').replace(/>/g, '>');
+}
+
+function getDatetime(){
+    var n=new Date(); 
+    return n.getFullYear()+"-"+(n.getMonth()+1)+"-"+n.getDate()+" "+n.getHours()+":"+n.getMinutes()+":"+n.getSeconds();
+}
+
+function timestamp(){
+    return new Date().getTime();
+}
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+//æ»šåŠ¨æ¡åˆ°æœ€ä¸‹æ–¹
+function scrolltobottom(id) {
+    var scrollTop = $("#"+id)[0].scrollHeight;
+    $("#"+id).scrollTop(scrollTop);
+}
+</script>
+<script type="text/javascript" language="javascript">
+$(document).ready(function(){
+	var win_h = html_height;
+	//alert(win_h);
+	$(".mod_min_height").css({"height":win_h});	
+	$(".msg_box").css({"height":win_h-70});	
+});
+</script>
+<!--<h1>Customer Page</h1>-->
+<div id="a" class="mod_min_height">
+	<div id="wapper">
+    	<div id="scroller">
+            <div class="tit">
+                <p id="status"></p><span>Mr.li</span>
+                <div class="clear"></div>
+            </div>
+            <div class="a msg_box" id="message"></div>
+            <div class="foot_bg">
+                <div class="mod_foot">
+                  <input id="sendContent" type="text" value="" maxlength="200"/>
+                  <button id="send" onClick='send()'/></button>
+                  <div class="clear"></div>
+                </div>
+            </div>
+            </div>
+            <button id="disconnect" onClick='disconnect()' style="display:none">Disconnect</button>
+    	</div>
+    </div>
+</body>
+</html>

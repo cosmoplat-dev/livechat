@@ -1,0 +1,233 @@
+<html>
+<head>
+<title>Account Manager</title>
+<meta charset="utf8"/>
+<script src="/json.js"></script> <!-- for ie -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<style>
+*{margin:0;padding:0;}
+body{background:#494444}
+.commondivclass {
+    width:100%;
+    height:400px;
+    margin:10px 10px;
+    background-color:#ccc;
+    display:none;
+    float:left;
+    border:1px solid #fff;
+    border-radius:5px;
+	font-size:15px;
+}
+.childdiv1class {
+    overflow:hidden;
+    overflow-y:auto;
+    word-wrap:break-word;
+    width:560px;
+    height:340px;
+    text-align:left;    
+    border-bottom: 1px solid #000;
+    padding:10px;
+}
+.left_list,.right_list{float:left;display:inline-block;}
+.left_list{width:300px;}
+.left_list h5{background-color:#999;border-top-left-radius:15px;border-top-right-radius:15px;padding:5px 0;font-size:16px;color:#fff;}
+.users_list{border:1px solid #CCC;min-height:400px;border-bottom-left-radius:5px;border-bottom-right-radius:5px; background: #fff;border-top: 1px solid #676666}
+.users_list p{margin:10px 5px;background: #f00;border-radius:10px;padding:5px;background:#e3fbfb;font-size:14px;}
+.users_list p span{font-size:12px;}
+.right_list{width:580px;margin-right:20px;margin-top:19px;}
+#sendContent{width:400px;height:30px; line-height:30px;float:left;margin:5px 5px 0 10px;resize: none;rows:1;}
+.right_list button{padding:5px;margin-top:5px;}
+#disconnect{padding:5px;}
+#status{color:#f7fe7f;}
+</style>
+</head>
+
+<body>
+<script>
+var socket;
+var firstconnect = true;
+
+function QueryString()
+{
+   var name,value,i;
+   var str=location.href;
+   var num=str.indexOf("?")
+   str=str.substr(num+1);
+   var arrtmp=str.split("&");
+   for(i=0;i < arrtmp.length;i++){
+       num=arrtmp[i].indexOf("=");
+       if(num>0){
+           name=arrtmp[i].substring(0,num);
+           value=arrtmp[i].substr(num+1);
+           this[name]=value;
+       }
+   }
+}
+
+
+var Request=new QueryString();
+var cm = {"userId": Request['uid'],"nickName":Request['nick'],"userlang":"am"};
+var datafromarr = new Array();
+var sendnum = 0;
+var info;
+
+
+if(firstconnect) {
+    //socket = io.connect(null,{'sync disconnect on unload': true});
+    socket = io.connect(null);
+    socket.emit('reg-user',cm);
+    socket.on('send-message',function(data){message(data); });
+    socket.on('new-user',function(data){status_update(data)}); 
+    socket.on('connect', function(){ status_update("Connected to Server"); });
+    socket.on('disconnect', function(){ status_update("Disconnected from Server"); });
+    socket.on('reconnect', function(){ socket.emit('reg-user',cm);status_update("Reconnected to Server"); });
+    socket.on('reconnecting', function( nextRetry ){ status_update("Reconnecting in " + nextRetry + " seconds"); });
+    socket.on('reconnect_failed', function(){ message("Reconnect Failed"); });
+    firstconnect = false;
+} else {
+       socket.socket.reconnect();
+}    
+
+
+function message(data) {
+    if(existid = in_array(datafromarr, data.from)){
+        info = document.getElementById(existid + "id2").getElementsByTagName("input")[0].value;
+        //$("#"+existid).append(data.datetime + ' ' + data.nick +" says: " + data.info +"<br>");
+        $("#"+existid).append("<p><div  style='font-size:3pt; color:#999999'><b>" + data.nick+ "</b> (" + getDatetime() +")  </div></p>" + data.info +"<br>");
+    $("#"+existid+"img").children("span").show();
+        scrollbottom(existid);
+    }else{
+    //第一个接收信息窗口显示标识,也可用于统计
+    sendnum++;
+    userId = data.from;
+    var commondiv = document.createElement("div");
+    commondiv.className = "commondivclass";
+    //生成用于定义id的唯一字符串
+    uuid = "from" + (new Date).getTime();
+    var commid = uuid + "comm";
+    commondiv.id = commid;
+    //document.getElementById("cuslist").innerHTML += data.from + "<br/>";
+    $("#cuslist").append("<p id='"+uuid+"img' onClick='showdialog(this);' style='cursor:hand; background-color:#ccc;'>" + decodeURIComponent(data.nick)+"<span style='color:red;'>(有消息)</span></p>");
+    //保存到以uid为索引键值的数组中
+    datafromarr[uuid] = data.from;
+    var fatherdiv = document.getElementById('cuswin').appendChild(commondiv);
+    var childdiv1 = document.createElement("div");
+    childdiv1.className = "childdiv1class";
+    var childdiv2 = document.createElement("div");
+    childdiv1.id = uuid;
+    var uuid2 = uuid + "id2";
+    var uuidbutton = uuid + "btn";
+    childdiv2.id = uuid2;
+    fatherdiv.appendChild(childdiv1);
+    fatherdiv.appendChild(childdiv2);
+    $("#"+uuid).append("<p><div  style='font-size:3pt; color:#999999'><b>" + data.nick+ "</b> (" + getDatetime() +")  </div></p>" + data.info +"<br>");
+    $("#"+uuid2).append($("#present").html());
+    document.getElementById(uuid2).getElementsByTagName("button")[0].id = uuidbutton;
+    if(sendnum == 1){$("#"+commid).show();}
+    scrollbottom(uuid);
+    }
+}
+
+function send(obj) {
+    if(existid = $(obj).parent().attr('id')){
+        info =  $(obj).parent().find('#sendContent').val();
+        var existid2 = existid.substring(0,existid.length-3);
+        $("#"+existid2).append("<p><div style='font-size:2pt;  color:#999999'><b>" +Request['nick']+"</b> ("+getDatetime() + ")</div> </p>" + info +"<br>");
+        scrollbottom(existid2);
+        userId = datafromarr[existid2];
+       
+    }
+	$(obj).parent().find('#sendContent').val('');
+    var msg = {'from':Request['uid'],'nick':Request['nick'],'to':userId,'info':info,'datetime':getDatetime()} 
+    socket.emit('send-message',msg);
+   
+}
+
+//显示对话框
+function showdialog(obj){
+    existid = $(obj).attr('id');
+    did = existid.substring(0,existid.length-3);
+    $("#cuswin").children().hide();
+    $("#"+did + "comm").show();
+    $("#"+existid).children("span").hide();
+}
+
+function status_update(txt){
+    $('#status').html(txt);
+}
+ 
+function esc(msg){
+    return msg.replace(/</g, '<').replace(/>/g, '>');
+}
+  
+function disconnect() {
+    socket.disconnect();
+}
+
+
+
+//闪烁效果
+function blink(label){
+    var id = arguments[1]?arguments[1]:0;
+    var time = arguments[2]?arguments[2]:0;
+    existid = event.srcElement.id;
+    if(label == true){
+        interval = setInterval(function(){$("#"+id).fadeOut(100).fadeIn(100);},time);
+    }else{
+    document.getElementById("existid").clearInterval(interval);
+    } 
+}
+
+//判断值是否在数组中，并返回索引名
+function in_array(arr, value){
+    var label = false;
+    for(var i in arr){
+    if(value === arr[i]){
+        label = i;
+        break;
+    }
+    }
+    return label;
+}
+
+//取得当前日期和时间
+function getDatetime(){
+    var n=new Date();   
+    return n.getFullYear()+"-"+(n.getMonth()+1)+"-"+n.getDate()+" "+n.getHours()+":"+n.getMinutes()+":"+n.getSeconds();
+}
+
+/*滚动条滚动到最下方*/
+function scrollbottom(id){
+    var div=document.getElementById(id);
+    if(div.scrollHeight>div.offsetHeight)
+    div.scrollTop=div.scrollHeight-div.offsetHeight;
+}
+
+
+</script>
+ 
+<center>
+</center>
+
+<div id = "present" style="display:none;">
+	<input id="sendContent" maxlength = 200 size=100>
+    <button onClick="send(this);">Send Message</button><br>
+</div>
+
+<center>
+    <div><p id="status">Waiting for input</p></div><br>
+    <!--<button id="disconnect" onClick='disconnect()'>Disconnect</button> -->
+    <div style="width:900px;height:450px;">
+    <div class="left_list">
+        <h5>My Customer</h5>
+       <div id="cuslist" class="users_list"></div>
+    </div>
+    <div  class="right_list">
+        <div id="cuswin" class="cus_list"></div>
+    </div>
+    </div>
+</center>
+
+</body>
+</html>
